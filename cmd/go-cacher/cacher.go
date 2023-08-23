@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bradfitz/go-tool-cache/azblob"
 	"github.com/bradfitz/go-tool-cache/cacheproc"
 	"github.com/bradfitz/go-tool-cache/cachers"
 )
@@ -19,6 +20,12 @@ var (
 	dir        = flag.String("cache-dir", "", "cache directory; empty means automatic")
 	serverBase = flag.String("cache-server", "", "optional cache server HTTP prefix (scheme and authority only); should be low latency. empty means to not use one.")
 	verbose    = flag.Bool("verbose", false, "be verbose")
+	remote = flag.String("remote", "", "remote to use. Defaults to disabled. Valid values are: azure")
+
+	azblobAccountName = flag.String("azblob-account-name", "", "Azure Blob Storage account name")
+	azblobAccountKey  = flag.String("azblob-account-key", "", "Azure Blob Storage account key")
+	azblobEndpoint    = flag.String("azblob-endpoint", "", "Azure Blob Storage endpoint")
+	azblobContainer   = flag.String("azblob-container", "", "Azure Blob Storage container")
 )
 
 func main() {
@@ -36,7 +43,24 @@ func main() {
 		log.Fatal(err)
 	}
 
-	dc := &cachers.DiskCache{Dir: *dir}
+	var cache cachers.Cache
+
+	dc := &cachers.DiskCache{Dir: *dir, Verbose: *verbose}
+
+	switch *remote {
+		case "azure":
+			cache = &cachers.WithUpstream{
+				Upstream: &azblob.CacheUpstream{
+					AccountName: *azblobAccountName,
+					AccountKey:  *azblobAccountKey,
+					Endpoint:    *azblobEndpoint,
+					Container:   *azblobContainer,
+				},
+				Local: dc,
+			}
+		default:
+			cache = dc
+	}
 
 	var p *cacheproc.Process
 	p = &cacheproc.Process{
@@ -47,15 +71,17 @@ func main() {
 			}
 			return nil
 		},
-		Get: dc.Get,
-		Put: dc.Put,
+		Get: cache.Get,
+		Put: cache.Put,
 	}
 
 	if *serverBase != "" {
-		hc := &cachers.HTTPClient{
-			BaseURL: *serverBase,
-			Disk:    dc,
-			Verbose: *verbose,
+		hc := &cachers.WithUpstream{
+			Upstream: &cachers.HTTPRemote{
+				BaseURL: *serverBase,
+				Verbose: *verbose,
+			},
+			Local: dc,
 		}
 		p.Get = hc.Get
 		p.Put = hc.Put

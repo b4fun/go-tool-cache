@@ -56,10 +56,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	dc := &cachers.DiskCache{Dir: *dir}
-
 	srv := &server{
-		cache:   dc,
+		cache:  &cachers.DiskCache{Dir: *dir, Verbose: *verbose},
 		verbose: *verbose,
 		latency: *latency,
 	}
@@ -68,7 +66,8 @@ func main() {
 }
 
 type server struct {
-	cache   *cachers.DiskCache // TODO: add interface for things other than disk cache? when needed.
+	cache cachers.Cache
+
 	verbose bool
 	latency time.Duration
 }
@@ -160,7 +159,12 @@ func (s *server) handleGetOutput(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	http.ServeFile(w, r, s.cache.OutputFilename(outputID))
+	_, diskPath, err := s.cache.Get(r.Context(), outputID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.ServeFile(w, r, diskPath)
 }
 
 func (s *server) handlePut(w http.ResponseWriter, r *http.Request) {
