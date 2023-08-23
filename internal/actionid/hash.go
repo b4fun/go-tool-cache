@@ -5,10 +5,22 @@ package actionid
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"hash"
+	"os"
 	"runtime"
 	"strings"
 )
+
+func debugHash() bool {
+	return os.Getenv("DEBUG_HASH") != ""
+}
+
+type Hash struct {
+	h     hash.Hash
+	name  string // for debugging
+	debug bool   // for debugging
+}
 
 // hashSalt is a salt string added to the beginning of every hash
 // created by NewHash. Using the Go version makes sure that different
@@ -35,8 +47,28 @@ func stripExperiment(version string) string {
 	return version
 }
 
-func newHash(name string) (hash.Hash) {
-	h := sha256.New()
+func newHash(name string) *Hash {
+	h := &Hash{h: sha256.New(), name: name, debug: debugHash()}
+	if h.debug {
+		fmt.Fprintf(os.Stderr, "HASH[%s]\n", h.name)
+	}
+
 	h.Write(hashSalt)
 	return h
+}
+
+func (h *Hash) Write(b []byte) (int, error) {
+	if h.debug {
+		fmt.Fprintf(os.Stderr, "HASH[%s] %q\n", h.name, b)
+	}
+	return h.h.Write(b)
+}
+
+func (h *Hash) Sum(b []byte) [HashSize]byte {
+	var out [HashSize]byte
+	h.h.Sum(out[:0])
+	if h.debug {
+		fmt.Fprintf(os.Stderr, "HASH[%s] %x\n", h.name, out)
+	}
+	return out
 }
