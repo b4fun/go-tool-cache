@@ -83,14 +83,10 @@ type Action struct {
 	Deps []*Action
 }
 
-func GetActionID(a Action) (ActionID, error) {
-	buildConfig, err := resolveBuildConfig()
-	if err != nil {
-		return ActionID{}, err
-	}
+func GetActionID(buildConfig BuildConfig, a Action) (ActionID, error) {
 	p := a.Package
 
-	h := newHash("build " + p.ImportPath)
+	h := newHash(buildConfig, "build " + p.ImportPath)
 
 	// Configuration independent of compiler toolchain.
 	// Note: buildmode has already been accounted for in buildGcflags
@@ -137,11 +133,12 @@ func GetActionID(a Action) (ActionID, error) {
 	}
 
 	if buildToolchainName == "gc" {
-		// TODO
-		const compileToolID = "TODO"
-		var forcedGcFlags []string
-		var internalGcFlags []string
-		fmt.Fprintf(h, "compile %s %q %q\n", compileToolID, forcedGcFlags, internalGcFlags)
+		compileToolID, err := buildConfig.GetToolID("compile")
+		if err != nil {
+			return ActionID{}, err
+		}
+		var internalGcFlags []string // TODO
+		fmt.Fprintf(h, "compile %s %q %q\n", compileToolID, buildConfig.ForcedGCFlags, internalGcFlags)
 		if len(p.SFiles) > 0 {
 			return ActionID{}, fmt.Errorf("assembly files not supported yet")
 		}

@@ -1,11 +1,18 @@
 package actionid
 
-import "runtime"
+import (
+	"fmt"
+	"runtime"
+)
 
 type BuildConfig struct {
 	GOOS string
 	GOARCH string
 	CleanGOEXPERIMENT string
+	RuntimeVersion string
+
+	ToolID map[string]string
+	ForcedGCFlags []string
 }
 
 func resolveBuildConfig() (BuildConfig, error) {
@@ -25,4 +32,25 @@ func (b BuildConfig) GetArchEnv() (string, string) {
 	default:
 		return "", ""
 	}
+}
+
+func (b BuildConfig) GetRuntimeVersion() string {
+	if b.RuntimeVersion != "" {
+		return b.RuntimeVersion
+	}
+
+	return runtime.Version()
+}
+
+func (b BuildConfig) GetToolID(name string) (string, error) {
+	if b.ToolID == nil {
+		return "", fmt.Errorf("tool id %q not found", name)
+	}
+
+	v, exists := b.ToolID[name]
+	if !exists {
+		return "", fmt.Errorf("tool id %q not found", name)
+	}
+
+	return v, nil
 }

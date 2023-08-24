@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"hash"
 	"os"
-	"runtime"
 	"strings"
 )
 
@@ -36,7 +35,9 @@ type Hash struct {
 // execution. This allows bootstrapping to converge faster: dist builds
 // go_bootstrap without any experiments, so by stripping experiments
 // go_bootstrap and the final go binary will use the same salt.
-var hashSalt = []byte(stripExperiment(runtime.Version()))
+func (b BuildConfig) GetHashSalt() []byte {
+	return []byte(stripExperiment(b.GetRuntimeVersion()))
+}
 
 // stripExperiment strips any GOEXPERIMENT configuration from the Go
 // version string.
@@ -47,13 +48,13 @@ func stripExperiment(version string) string {
 	return version
 }
 
-func newHash(name string) *Hash {
+func newHash(buildConfig BuildConfig, name string) *Hash {
 	h := &Hash{h: sha256.New(), name: name, debug: debugHash()}
 	if h.debug {
 		fmt.Fprintf(os.Stderr, "HASH[%s]\n", h.name)
 	}
 
-	h.Write(hashSalt)
+	h.Write(buildConfig.GetHashSalt())
 	return h
 }
 
