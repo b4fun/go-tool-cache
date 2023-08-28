@@ -6,6 +6,7 @@ package actionid
 
 import (
 	"fmt"
+	"path/filepath"
 	"runtime/debug"
 )
 
@@ -63,7 +64,7 @@ const (
 
 	// this flag seems to be false in normal binary building path.
 	// TODO: investigate the usage in unit test binary building path.
-	omitDebug = true
+	omitDebug = false
 
 	// forceLibrary is not supported yet
 	forceLibrary = false
@@ -170,11 +171,17 @@ func GetActionID(buildConfig BuildConfig, a Action) (ActionID, error) {
 		p.EmbedFiles,
 	)
 	for _, file := range inputFiles {
-		fileHash := "TODO"
+		fileHash, err := buildConfig.GetFileHash(filepath.Join(p.Dir, file))
+		if err != nil {
+			return ActionID{}, err
+		}
 		fmt.Fprintf(h, "file %s %s\n", file, fileHash)
 	}
 	if p.Internal.PGOProfile != "" {
-		fileHash := "TODO"
+		fileHash, err := buildConfig.GetFileHash(p.Internal.PGOProfile)
+		if err != nil {
+			return ActionID{}, err
+		}
 		fmt.Fprintf(h, "pgofile %s\n", fileHash)
 	}
 	for _, a1 := range p.Deps {

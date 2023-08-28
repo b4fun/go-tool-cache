@@ -54,3 +54,11 @@ func (b BuildConfig) GetToolID(name string) (string, error) {
 
 	return v, nil
 }
+
+func (b BuildConfig) GetFileHash(filePath string) (string, error) {
+	h, err := FileHash(filePath)
+	if err != nil {
+		return "", err
+	}
+	return HashToString(h), nil
+}
